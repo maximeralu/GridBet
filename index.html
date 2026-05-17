@@ -490,7 +490,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;max
   </div>
 
   <!-- Message d'erreur -->
-  <div class="auth-error" id="auth-error">Identifiants incorrects. Réessaie.</div>
+  <div class="auth-error" id="auth-error"></div>
 
   <!-- CONNEXION -->
   <div id="auth-login" style="width:100%">
@@ -1058,7 +1058,7 @@ const F1_DRIVERS = [
   {pos:22,code:'PER',name:'Perez',     team:'Cadillac',    pts:0,  wins_r:0,wins_s:0,wins_q:0,wins_sq:0, moy_q:19.8,moy_r:null, best_q:18,best_r:null,gps:[{n:'AUS',q:18,r:0,rpos:null},{n:'CHI',q:22,r:0,rpos:null,sprint:true},{n:'JAP',q:20,r:0,rpos:null},{n:'MIA',q:19,r:0, rpos:null}]},
 ];
 
- = [
+const F1_TEAMS = [
   {pos:1, name:'Mercedes',    pts:180,color:'#00D2BE', drivers:['ANT','RUS'], wins_r:4,wins_s:1,wins_q:3,wins_sq:1, gps:[{n:'AUS',pts:43},{n:'CHI',pts:55,sprint:true},{n:'JAP',pts:37},{n:'MIA',pts:40}]},
   {pos:2, name:'Ferrari',     pts:110,color:'#E8002D', drivers:['LEC','HAM'], wins_r:0,wins_s:0,wins_q:0,wins_sq:0, gps:[{n:'AUS',pts:27},{n:'CHI',pts:40,sprint:true},{n:'JAP',pts:23},{n:'MIA',pts:13}]},
   {pos:3, name:'McLaren',     pts:94, color:'#FF8000', drivers:['NOR','PIA'], wins_r:0,wins_s:0,wins_q:0,wins_sq:0, gps:[{n:'AUS',pts:10},{n:'CHI',pts:8, sprint:true},{n:'JAP',pts:28},{n:'MIA',pts:33}]},
@@ -2876,13 +2876,25 @@ function setAuthTab(tab) {
   hideAuthError();
 }
 
-function showAuthError(msg) {
+function showAuthError(msg, success=false) {
   const el = document.getElementById('auth-error');
   el.textContent = msg;
+  // Reset styles à chaque appel
+  el.style.background   = success ? '#1a2a1a' : '#2a1a1a';
+  el.style.borderColor  = success ? '#2ECC7155' : '#5a2a2a';
+  el.style.color        = success ? '#2ECC71'   : '#e8a0a0';
+  el.style.display      = 'block';
   el.classList.add('show');
 }
 function hideAuthError() {
-  document.getElementById('auth-error').classList.remove('show');
+  const el = document.getElementById('auth-error');
+  el.classList.remove('show');
+  el.style.display = 'none';
+  el.textContent = '';
+  // Reset couleurs
+  el.style.background  = '';
+  el.style.borderColor = '';
+  el.style.color       = '';
 }
 
 function doLogin() {
@@ -2908,10 +2920,21 @@ function doSignup() {
   if(!pseudo || !email || !pwd || !pwd2) { showAuthError('Remplis tous les champs.'); return; }
   if(pseudo.length < 3) { showAuthError('Pseudo trop court (min. 3 caractères).'); return; }
   if(!email.includes('@')) { showAuthError('Adresse email invalide.'); return; }
-  if(pwd.length < 8) { showAuthError('Mot de passe trop court (min. 8 caractères).'); return; }
+  if(pwd.length < 6) { showAuthError('Mot de passe trop court (min. 6 caractères).'); return; }
   if(pwd !== pwd2) { showAuthError('Les mots de passe ne correspondent pas.'); return; }
 
-  // Dans la vraie appli : appel API pour créer le compte
+  // Vérifier que le pseudo n'existe pas déjà
+  if(RANKINGS.find(r => r.name.toLowerCase() === pseudo.toLowerCase())) {
+    showAuthError('Ce pseudo est déjà pris. Choisis-en un autre.');
+    return;
+  }
+
+  // Ajouter dans RANKINGS et PLAYER_STATS pour éviter les crashs de rendu
+  RANKINGS.push({name: pseudo, pts: 0});
+  PLAYER_STATS[pseudo] = {q_pts:0, c_pts:0, moy_q:0, moy_c:0, record_q:0, record_c:0, wins_q:0, wins_c:0, gps:[]};
+  // Ajouter dans DEMO_ACCOUNTS pour pouvoir se reconnecter
+  DEMO_ACCOUNTS.push({pseudo, pwd});
+
   launchApp(pseudo);
 
   // Si un code de ligue était en attente, rejoindre automatiquement
@@ -2946,14 +2969,7 @@ function loginWithCode() {
 
   // Basculer vers l'inscription avec message de confirmation
   setAuthTab('signup');
-
-  // Afficher un message de succès vert (réutilise auth-error avec style succès)
-  const errEl = document.getElementById('auth-error');
-  errEl.textContent = '✓ Code valide ! Crée ton compte pour rejoindre "' + league.name + '".';
-  errEl.style.display = 'block';
-  errEl.style.background = '#1a2a1a';
-  errEl.style.borderColor = '#2ECC7155';
-  errEl.style.color = '#2ECC71';
+  showAuthError('✓ Code valide ! Crée ton compte pour rejoindre "' + league.name + '".', true);
 
   // Pré-remplir un label sous le bouton pour rappeler la ligue à rejoindre
   const lbl = document.getElementById('pending-league-label');
